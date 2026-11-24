@@ -12,3 +12,4 @@
 Thumbs.db
 *.webp
 # webp are derived artifacts; regenerate with tools/make-webp.sh
+_originals/

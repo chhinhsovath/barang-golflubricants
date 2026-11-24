@@ -29,6 +29,8 @@ Re-run these after re-capturing the mirror. All are idempotent.
 | `tools/bundle-assets.js` | Merges the theme's CSS/JS into `assets/bundle/`. Run with `--dry-run` first. |
 | `tools/lazy-images.js` | Adds `loading="lazy"` to offscreen images. |
 | `tools/fix-logo.js` | Makes the GOLF logo + favicons consistent across every page. |
+| `tools/shrink-video.sh` | Re-encodes the promo videos under Cloudflare's 25 MiB asset limit. |
+| `tools/shrink-pdf.sh` | Shrinks the catalogue PDFs under the same limit. |
 
 ```bash
 ./tools/make-webp.sh
@@ -59,6 +61,53 @@ git checkout <baseline-commit> -- . && node tools/bundle-assets.js
 
 Across all 143 pages, subresource requests fell from 14,411 to 1,112 (−92.3%).
 WebP variants total 71 MB against 498 MB of originals (−86%).
+
+## Deploy (Cloudflare Workers)
+
+Live: <https://barang-golflubricants.sovath.workers.dev>
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=0917cab6a3763a18518040978bf8835f
+npx wrangler deploy
+```
+
+`wrangler.jsonc` serves the repo root as static assets; `.assetsignore` keeps
+git history, tooling and source-only files out of the upload. `worker/index.js`
+exists for one job — WebP content negotiation, the same trick `serve.js` uses
+locally — so the HTML never needs rewriting. Only `/wp-content/*` is routed
+through the Worker; everything else is served straight from the asset store.
+
+### The 25 MiB asset limit
+
+Cloudflare rejects any single asset over 25 MiB. Five files exceeded it and all
+five were in use, so they were compressed rather than dropped:
+
+| File | Before | After |
+|---|---|---|
+| Venol Production (2026/10) | 100.3 MiB | 23.0 MiB |
+| Venol Production (2024/09) | 54.4 MiB | 23.1 MiB |
+| Nexium Production | 36.5 MiB | 23.1 MiB |
+| Folder_VENOL_EN.pdf | 31.9 MiB | 19.4 MiB |
+| Folder_NEXIUM_EN_2025.pdf | 25.2 MiB | 22.5 MiB |
+
+Pristine originals live in `_originals/` (gitignored, local only). The PDF
+originals are also in git history — recover with
+`git show 3ba0739:wp-content/uploads/2025/10/Folder_VENOL_EN.pdf > out.pdf`.
+**The video originals exist ONLY in `_originals/`** — they were never tracked.
+
+`tools/shrink-pdf.sh` is a two-stage pipeline for a reason: these are Corel
+brochures whose pages are CMYK JPEG-2000 images, and ghostscript alone cannot
+read that combination — it emits a PDF with a broken xref that renders zero
+pages. `pdftocairo` rewrites clean PDF operators first, then ghostscript
+re-encodes. The script validates page count, parse errors and size before
+replacing anything, and restores the original if any check fails.
+
+### Platform note
+
+Cloudflare's asset server does not honour HTTP Range requests — a ranged GET
+returns 200 with the whole body, for Worker-routed and plain assets alike. The
+videos still play (progressive download), but seeking is less efficient than it
+is under `serve.js` locally, which does serve 206.
 
 ## Branding
 

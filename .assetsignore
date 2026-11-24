@@ -1,0 +1,17 @@
+# Keep tooling, history and source-only files out of the deployed asset store.
+**/.git
+**/node_modules
+**/.DS_Store
+
+.gitignore
+.assetsignore
+wrangler.jsonc
+worker
+tools
+serve.js
+README.md
+
+# Local-only artifacts
+*.log
+.opt-cache
+_originals

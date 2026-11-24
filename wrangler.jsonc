@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "barang-golflubricants",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-11-01",
+
+  "assets": {
+    // The mirror is served from the repo root; .assetsignore keeps the
+    // tooling, git history and source-only files out of the upload.
+    "directory": "./",
+    "binding": "ASSETS",
+
+    // The mirror uses directory URLs (/produkte/ -> /produkte/index.html).
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none",
+
+    // Only image paths need the Worker (for WebP negotiation). Everything
+    // else is served straight from the asset store, no invocation, no cost.
+    "run_worker_first": ["/wp-content/*"]
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
