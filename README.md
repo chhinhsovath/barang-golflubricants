@@ -28,11 +28,13 @@ Re-run these after re-capturing the mirror. All are idempotent.
 | `tools/make-webp.sh` | Writes `<file>.webp` next to every jpg/png (~8s, 12 cores). `serve.js` serves these automatically when the browser sends `Accept: image/webp`. |
 | `tools/bundle-assets.js` | Merges the theme's CSS/JS into `assets/bundle/`. Run with `--dry-run` first. |
 | `tools/lazy-images.js` | Adds `loading="lazy"` to offscreen images. |
+| `tools/fix-logo.js` | Makes the GOLF logo + favicons consistent across every page. |
 
 ```bash
 ./tools/make-webp.sh
 node tools/bundle-assets.js --dry-run && node tools/bundle-assets.js
 node tools/lazy-images.js
+node tools/fix-logo.js
 ```
 
 `*.webp` is gitignored — it is derived output, regenerate it rather than commit it.
@@ -57,6 +59,32 @@ git checkout <baseline-commit> -- . && node tools/bundle-assets.js
 
 Across all 143 pages, subresource requests fell from 14,411 to 1,112 (−92.3%).
 WebP variants total 71 MB against 498 MB of originals (−86%).
+
+## Branding
+
+The capture was mid-rebrand from VENOL to GOLF Lubricants. As captured:
+
+- the header's inline `<svg>` was the **VENOL** mark, on all 143 pages;
+- a **GOLF** `<img class="alternate">` existed on only the 5 language
+  homepages, and Enfold shows an alternate logo solely while the header is
+  transparent. So most pages showed VENOL, and the homepages flipped
+  VENOL to GOLF on scroll.
+
+`tools/fix-logo.js` now puts one GOLF mark in every header state, on all 143
+pages, and repoints all five favicon sizes. It also strips Enfold's
+`av_alternate_logo_active` class — that class hides the *primary* logo while
+the header is transparent, so leaving it would blank the header logo once the
+alternate was gone.
+
+GOLF assets were derived from the one piece of GOLF artwork in the mirror
+(`venol-motor-oil-logo-GT-Flag-white.png`, which despite its name is a JPEG
+containing the GOLF logo):
+
+- `wp-content/uploads/2024/08/golf-lubricants-logo.png` — 280x160, 2x the 80px header slot
+- `wp-content/uploads/2024/07/golf-favicon-{32,180,192,270,300}.png` — centre-cropped square
+
+**Still VENOL, deliberately untouched:** page `<title>`s and body copy. Rewriting
+those across five languages is a separate job.
 
 ## Known mirror artifacts (present in the original capture, not introduced here)
 
