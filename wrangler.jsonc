@@ -16,7 +16,7 @@
 
     // Only image paths need the Worker (for WebP negotiation). Everything
     // else is served straight from the asset store, no invocation, no cost.
-    "run_worker_first": ["/wp-content/*"]
+    "run_worker_first": ["/media/*", "/theme/*"]
   },
 
   "observability": {

@@ -10,7 +10,7 @@
  * Doing it here means the HTML is never rewritten, so the theme's slider,
  * lightbox and srcset logic stay untouched.
  *
- * Only /wp-content/* runs through here (see run_worker_first in
+ * Only the media/theme asset paths run through here (see run_worker_first in
  * wrangler.jsonc); every other path is served straight from the asset
  * store without a Worker invocation.
  */

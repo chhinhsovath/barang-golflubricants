@@ -51,9 +51,9 @@ print(max(200, int(total - $AUDIO_KBPS)))")
   fi
 }
 
-shrink "wp-content/uploads/2026/10/Venol Motor Oil Production 720.mp4" \
+shrink "media/2026/10/Venol Motor Oil Production 720.mp4" \
        "_originals/videos/2026_10_Venol Motor Oil Production 720.mp4"
-shrink "wp-content/uploads/2024/09/Venol Motor Oil Production 720.mp4" \
+shrink "media/2024/09/Venol Motor Oil Production 720.mp4" \
        "_originals/videos/2024_09_Venol Motor Oil Production 720.mp4"
-shrink "wp-content/uploads/2024/09/Nexium Motor Oil Production 720.mp4" \
+shrink "media/2024/09/Nexium Motor Oil Production 720.mp4" \
        "_originals/videos/2024_09_Nexium Motor Oil Production 720.mp4"

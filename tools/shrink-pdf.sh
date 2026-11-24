@@ -65,5 +65,5 @@ shrink() {
   fi
 }
 
-shrink "wp-content/uploads/2025/10/Folder_VENOL_EN.pdf"
-shrink "wp-content/uploads/2025/10/Folder_NEXIUM_EN_2025.pdf"
+shrink "media/2025/10/Folder_VENOL_EN.pdf"
+shrink "media/2025/10/Folder_NEXIUM_EN_2025.pdf"

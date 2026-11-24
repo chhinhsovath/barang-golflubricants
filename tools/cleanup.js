@@ -85,12 +85,12 @@ for (const f of ['en/home-3/hqdefault.html', 'en/home-3/mqdefault.html',
 }
 
 // -- Dead VENOL branding
-for (const f of ['wp-content/uploads/2024/07/cropped-favicon-180x180.gif',
-                 'wp-content/uploads/2024/07/cropped-favicon-192x192.gif',
-                 'wp-content/uploads/2024/07/cropped-favicon-270x270.gif',
-                 'wp-content/uploads/2024/07/cropped-favicon-32x32.gif',
-                 'wp-content/uploads/2024/07/favicon-300x300.gif',
-                 'wp-content/uploads/2024/08/venol-motor-oil-logo-GT-Flag-white12.png']) {
+for (const f of ['media/2024/07/cropped-favicon-180x180.gif',
+                 'media/2024/07/cropped-favicon-192x192.gif',
+                 'media/2024/07/cropped-favicon-270x270.gif',
+                 'media/2024/07/cropped-favicon-32x32.gif',
+                 'media/2024/07/favicon-300x300.gif',
+                 'media/2024/08/venol-motor-oil-logo-GT-Flag-white12.png']) {
   const p = path.join(ROOT, f);
   if (fs.existsSync(p)) del['Dead VENOL branding'].push(p);
 }
@@ -122,7 +122,7 @@ for (const f of ['wp-content/uploads/2024/07/cropped-favicon-180x180.gif',
   // Only THEME/vendor asset trees are eligible. Without this guard a
   // root-level, intentionally-unreferenced file such as serve.js looks
   // "orphaned" and gets swept up.
-  const ELIGIBLE = /^(wp-content|wp-includes)[\\/]/;
+  const ELIGIBLE = /^(media|theme|vendor)[\\/]/;
   for (const f of walk(ROOT)) {
     if (!/\.(css|js)$/i.test(f)) continue;
     if (pending.has(path.resolve(f))) continue;

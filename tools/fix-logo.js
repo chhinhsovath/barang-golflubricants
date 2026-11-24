@@ -22,9 +22,9 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const DRY = process.argv.includes('--dry-run');
 
-const LOGO = 'wp-content/uploads/2024/08/golf-lubricants-logo.png';
-const FAV_LG = 'wp-content/uploads/2024/07/golf-favicon-300x300.png';
-const FAV_SM = 'wp-content/uploads/2024/07/golf-favicon-32x32.png';
+const LOGO = 'media/2024/08/golf-lubricants-logo.png';
+const FAV_LG = 'media/2024/07/golf-favicon-300x300.png';
+const FAV_SM = 'media/2024/07/golf-favicon-32x32.png';
 const NAME = 'GOLF Lubricants';
 
 // old VENOL icon file -> its GOLF replacement
@@ -35,7 +35,7 @@ const FAVICONS = [
   ['cropped-favicon-192x192.gif', 'golf-favicon-192x192.png'],
   ['cropped-favicon-270x270.gif', 'golf-favicon-270x270.png'],
 ];
-const FAV_DIR = 'wp-content/uploads/2024/07/';
+const FAV_DIR = 'media/2024/07/';
 
 function walk(d, out = []) {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {

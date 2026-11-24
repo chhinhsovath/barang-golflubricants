@@ -75,7 +75,7 @@ npx wrangler deploy
 `wrangler.jsonc` serves the repo root as static assets; `.assetsignore` keeps
 git history, tooling and source-only files out of the upload. `worker/index.js`
 exists for one job — WebP content negotiation, the same trick `serve.js` uses
-locally — so the HTML never needs rewriting. Only `/wp-content/*` is routed
+locally — so the HTML never needs rewriting. Only `/media/*` and `/theme/*` are routed
 through the Worker; everything else is served straight from the asset store.
 
 ### The 25 MiB asset limit
@@ -93,7 +93,7 @@ five were in use, so they were compressed rather than dropped:
 
 Pristine originals live in `_originals/` (gitignored, local only). The PDF
 originals are also in git history — recover with
-`git show 3ba0739:wp-content/uploads/2025/10/Folder_VENOL_EN.pdf > out.pdf`.
+`git show 3ba0739:media/2025/10/Folder_VENOL_EN.pdf > out.pdf`.
 **The video originals exist ONLY in `_originals/`** — they were never tracked.
 
 `tools/shrink-pdf.sh` is a two-stage pipeline for a reason: these are Corel
@@ -130,11 +130,46 @@ GOLF assets were derived from the one piece of GOLF artwork in the mirror
 (`venol-motor-oil-logo-GT-Flag-white.png`, which despite its name is a JPEG
 containing the GOLF logo):
 
-- `wp-content/uploads/2024/08/golf-lubricants-logo.png` — 280x160, 2x the 80px header slot
-- `wp-content/uploads/2024/07/golf-favicon-{32,180,192,270,300}.png` — centre-cropped square
+- `media/2024/08/golf-lubricants-logo.png` — 280x160, 2x the 80px header slot
+- `media/2024/07/golf-favicon-{32,180,192,270,300}.png` — centre-cropped square
 
 **Still VENOL, deliberately untouched:** page `<title>`s and body copy. Rewriting
 those across five languages is a separate job.
+
+## No WordPress
+
+There is no WordPress here: no PHP, no database, no `wp-admin`, no `wp-json`,
+no `xmlrpc`. The directory names went too (`tools/migrate-paths.js`):
+
+| Was | Now |
+|---|---|
+| `wp-content/uploads/` | `media/` |
+| `wp-content/themes/enfold/` | `theme/` |
+| `wp-includes/js/mediaelement/` | `vendor/mediaelement/` |
+
+10,746 references across 164 files were rewritten. References are relative and
+climb to the root (`../../wp-content/...`), so the leading `../` sequence is
+unchanged and only the suffix differs — but files that MOVED changed depth, so
+their own internal upward references had to be re-checked. Two HTTrack stubs
+under `theme/` had stale ones and were removed.
+
+`tools/strip-wp-remnants.js` removed the last WordPress runtime from the HTML:
+
+- the emoji polyfill (`wp-emoji-settings` + its auto-generated module + inline
+  styles) on 139 pages, which also fetched emoji images from `s.w.org`;
+- 695 dead exclusion patterns in the `speculationrules` prefetch block (the
+  block itself is a real optimisation and is kept — its JSON is validated);
+- 139 `sourceURL` devtools comments naming `wp-includes` paths;
+- 48 `<img src="https://s.w.org/...">` emoji in RSS content, replaced with the
+  literal character already present in each tag's `alt`.
+
+**Kept deliberately:** `wp-custom-css` (the site's own styling),
+`wp-block-library-*` and `global-styles-*` (still live — `wp-container`
+classes appear on 40 pages), and the `--wp--preset--*` CSS variables. Those
+are CSS class names, not WordPress; renaming them is risk without benefit.
+
+Since bundles embed asset paths and their filenames are content hashes, they
+were re-hashed and the HTML updated to match.
 
 ## What was removed
 
@@ -155,7 +190,7 @@ commit `3ba0739`.
 
 Two guards worth knowing about, because both caught real mistakes:
 
-1. Orphan detection is scoped to `wp-content/` and `wp-includes/`. Without that
+1. Orphan detection is scoped to `media/`, `theme/` and `vendor/`. Without that
    scope, root-level files that nothing references — `serve.js` above all —
    look orphaned and get deleted.
 2. `layerslider.transitions994d.js` is still referenced by a standalone
