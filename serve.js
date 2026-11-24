@@ -46,6 +46,35 @@ const MIME = {
   '.php': 'text/html; charset=utf-8',
 };
 const COMPRESSIBLE = /^(text\/|application\/(javascript|json|xml|rss\+xml)|image\/svg)/;
+
+/**
+ * HTTrack sometimes saves a binary asset under a .html name (a query-string
+ * artifact). Serving those as text/html with nosniff makes browsers reject
+ * them, so .html/.htm files are checked against magic bytes once and remembered.
+ */
+const MAGIC = [
+  ['wOF2', 'font/woff2'], ['wOFF', 'font/woff'], ['OTTO', 'font/otf'],
+  ['\x00\x01\x00\x00', 'font/ttf'], ['true', 'font/ttf'],
+  ['\x89PNG', 'image/png'], ['GIF8', 'image/gif'], ['\xff\xd8\xff', 'image/jpeg'],
+  ['RIFF', 'image/webp'], ['%PDF', 'application/pdf'],
+];
+const sniffCache = new Map();
+async function sniffType(file, declared) {
+  if (!/\.html?$/i.test(file)) return declared;
+  if (sniffCache.has(file)) return sniffCache.get(file);
+  let type = declared;
+  let fh;
+  try {
+    fh = await fsp.open(file, 'r');
+    const buf = Buffer.alloc(4);
+    await fh.read(buf, 0, 4, 0);
+    const head = buf.toString('latin1');
+    for (const [m, t] of MAGIC) if (head.startsWith(m)) { type = t; break; }
+  } catch { /* fall back to declared */ }
+  finally { if (fh) await fh.close().catch(() => {}); }
+  sniffCache.set(file, type);
+  return type;
+}
 const IMMUTABLE = /\.(css|js|mjs|jpe?g|png|gif|webp|avif|svg|ico|woff2?|ttf|eot|otf|mp4|webm|mp3|pdf)$/i;
 
 // encoded-body cache: key = realpath + mtime + encoding
@@ -70,10 +99,20 @@ async function statFile(p) {
   } catch { return null; }
 }
 
-/** Resolve a request path to an on-disk file, mimicking the mirror's layout. */
+/**
+ * Resolve a request path to an on-disk file, mimicking the mirror's layout.
+ * Only the resolved PATH is cached; size/mtime are re-stat'ed on every request
+ * so edits (e.g. a re-run of tools/bundle-assets.js) are picked up immediately
+ * instead of being served with a stale Content-Length/ETag.
+ */
 async function resolve(urlPath) {
-  const hit = resolveCache.get(urlPath);
-  if (hit !== undefined) return hit;
+  const cached = resolveCache.get(urlPath);
+  if (cached !== undefined) {
+    if (cached === null) return null;
+    const s = await statFile(cached);
+    if (s) return { file: cached, size: s.size, mtimeMs: s.mtimeMs };
+    resolveCache.delete(urlPath);   // file vanished; fall through to re-resolve
+  }
 
   const base = safeJoin(ROOT, urlPath);
   let out = null;
@@ -87,7 +126,7 @@ async function resolve(urlPath) {
       if (s) { out = { file: c, size: s.size, mtimeMs: s.mtimeMs }; break; }
     }
   }
-  if (resolveCache.size < 20000) resolveCache.set(urlPath, out);
+  if (resolveCache.size < 20000) resolveCache.set(urlPath, out ? out.file : null);
   return out;
 }
 
@@ -148,7 +187,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     const ext = path.extname(r.file).toLowerCase();
-    const type = MIME[ext] || 'application/octet-stream';
+    const type = await sniffType(r.file, MIME[ext] || 'application/octet-stream');
     const etag = etagOf(r);
     const headers = {
       'Content-Type': type,
