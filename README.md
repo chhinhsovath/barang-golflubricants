@@ -28,7 +28,8 @@ Re-run these after re-capturing the mirror. All are idempotent.
 | `tools/make-webp.sh` | Writes `<file>.webp` next to every jpg/png (~8s, 12 cores). `serve.js` serves these automatically when the browser sends `Accept: image/webp`. |
 | `tools/bundle-assets.js` | Merges the theme's CSS/JS into `assets/bundle/`. Run with `--dry-run` first. |
 | `tools/lazy-images.js` | Adds `loading="lazy"` to offscreen images. |
-| `tools/fix-logo.js` | Makes the GOLF logo + favicons consistent across every page. |
+| `tools/set-logo.sh` | **Change the logo.** Regenerates the header logo + all 5 favicons from one image. |
+| `tools/fix-logo.js` | Makes the logo + favicons consistent across every page (re-run after a re-capture). |
 | `tools/shrink-video.sh` | Re-encodes the promo videos under Cloudflare's 25 MiB asset limit. |
 | `tools/shrink-pdf.sh` | Shrinks the catalogue PDFs under the same limit. |
 | `tools/cleanup.js` | Removes WordPress plumbing and HTTrack scrape artifacts. |
@@ -109,6 +110,42 @@ Cloudflare's asset server does not honour HTTP Range requests — a ranged GET
 returns 200 with the whole body, for Worker-routed and plain assets alike. The
 videos still play (progressive download), but seeking is less efficient than it
 is under `serve.js` locally, which does serve 206.
+
+## Changing the logo
+
+One command, any image:
+
+```bash
+./tools/set-logo.sh path/to/new-logo.png
+node serve.js                      # check it at http://localhost:8080
+CLOUDFLARE_ACCOUNT_ID=0917cab6a3763a18518040978bf8835f npx wrangler deploy
+```
+
+It writes:
+
+| File | What it is |
+|---|---|
+| `media/2024/08/golf-lubricants-logo.png` | header logo, height 160 (2x the 80px slot), width follows your aspect ratio |
+| `media/2024/07/golf-favicon-{32,180,192,270,300}.png` | centre-cropped squares |
+| `*.webp` siblings | what the Worker actually serves to modern browsers |
+
+It also rewrites the `width`/`height` attributes on the logo `<img>` across all
+139 pages, so a different aspect ratio doesn't make the header jump on load,
+and keeps your source in `_originals/branding/`.
+
+Notes:
+
+- The header slot is height-constrained (`max-height: 80px`, width auto), so a
+  wider or narrower logo adapts on its own — no CSS edit needed.
+- Favicons are **centre-cropped**, not padded. Padding shrinks the wordmark
+  until it is unreadable at 16px tab size; this was compared both ways.
+- A PNG with transparency stays transparent. The current logo is a JPEG with a
+  solid orange field, so it renders as a filled tile.
+- Only the files change — no HTML path edits — because every page already
+  points at those exact filenames. Keep the names and nothing else must move.
+
+To change the *name* as well (alt text, title, aria-label), edit `NAME` at the
+top of `tools/fix-logo.js` and run `node tools/fix-logo.js`.
 
 ## Branding
 
