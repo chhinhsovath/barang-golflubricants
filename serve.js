@@ -28,6 +28,7 @@ const PORT = Number(argOf('--port', process.env.PORT || 8080));
 const ROOT = path.resolve(argOf('--root', __dirname));
 const COMPRESS = !argv.includes('--no-compress');
 const QUIET = argv.includes('--quiet');
+const WEBP_ENABLED = !argv.includes('--no-webp');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
@@ -74,6 +75,29 @@ async function sniffType(file, declared) {
   finally { if (fh) await fh.close().catch(() => {}); }
   sniffCache.set(file, type);
   return type;
+}
+
+/**
+ * WebP content negotiation. tools/make-webp.sh writes a sibling "<file>.webp"
+ * for every jpg/png. When the client advertises image/webp and that sibling
+ * exists, it is served in place of the original — no HTML rewriting, so the
+ * theme's sliders/lightbox/srcset logic is untouched.
+ * Responses carry Vary: Accept so shared caches don't cross-serve.
+ */
+const WEBP_SRC = /\.(jpe?g|png)$/i;
+const webpCache = new Map();
+async function webpAlt(file) {
+  if (!WEBP_SRC.test(file)) return null;
+  if (webpCache.has(file)) {
+    const alt = webpCache.get(file);
+    if (!alt) return null;
+    const s = await statFile(alt);
+    return s ? { file: alt, size: s.size, mtimeMs: s.mtimeMs } : null;
+  }
+  const alt = file + '.webp';
+  const s = await statFile(alt);
+  webpCache.set(file, s ? alt : null);
+  return s ? { file: alt, size: s.size, mtimeMs: s.mtimeMs } : null;
 }
 const IMMUTABLE = /\.(css|js|mjs|jpe?g|png|gif|webp|avif|svg|ico|woff2?|ttf|eot|otf|mp4|webm|mp3|pdf)$/i;
 
@@ -186,14 +210,24 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const ext = path.extname(r.file).toLowerCase();
-    const type = await sniffType(r.file, MIME[ext] || 'application/octet-stream');
-    const etag = etagOf(r);
+    // Prefer a .webp sibling when the client accepts it.
+    let served = r;
+    let negotiated = false;
+    if (WEBP_ENABLED && /image\/webp/.test(String(req.headers.accept || ''))) {
+      const alt = await webpAlt(r.file);
+      if (alt && alt.size < r.size) { served = alt; negotiated = true; }
+    }
+
+    const ext = path.extname(served.file).toLowerCase();
+    const type = negotiated
+      ? 'image/webp'
+      : await sniffType(served.file, MIME[ext] || 'application/octet-stream');
+    const etag = etagOf(served);
     const headers = {
       'Content-Type': type,
       'ETag': etag,
       'Last-Modified': new Date(r.mtimeMs).toUTCString(),
-      'Cache-Control': IMMUTABLE.test(r.file)
+      'Cache-Control': IMMUTABLE.test(served.file)
         ? 'public, max-age=31536000'
         : 'no-cache',
       'X-Content-Type-Options': 'nosniff',
@@ -207,46 +241,48 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Range requests (video scrubbing) — always served uncompressed.
+    if (negotiated) headers['Vary'] = 'Accept';
+
     const range = req.headers.range;
     if (range && /^bytes=/.test(range)) {
       const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
       if (m) {
         let start = m[1] === '' ? null : Number(m[1]);
         let end = m[2] === '' ? null : Number(m[2]);
-        if (start === null) { start = r.size - (end || 0); end = r.size - 1; }
-        if (end === null || end >= r.size) end = r.size - 1;
+        if (start === null) { start = served.size - (end || 0); end = served.size - 1; }
+        if (end === null || end >= served.size) end = served.size - 1;
         if (start > end || start < 0) {
           status = 416;
-          res.writeHead(416, { 'Content-Range': `bytes */${r.size}` }).end();
+          res.writeHead(416, { 'Content-Range': `bytes */${served.size}` }).end();
           return;
         }
         status = 206;
         res.writeHead(206, {
           ...headers,
-          'Content-Range': `bytes ${start}-${end}/${r.size}`,
+          'Content-Range': `bytes ${start}-${end}/${served.size}`,
           'Content-Length': end - start + 1,
         });
         if (req.method === 'HEAD') return res.end();
-        fs.createReadStream(r.file, { start, end }).pipe(res);
+        fs.createReadStream(served.file, { start, end }).pipe(res);
         return;
       }
     }
 
-    const enc = pickEncoding(req, type, r.size);
+    const enc = pickEncoding(req, type, served.size);
     if (enc) {
-      const body = await getEncoded(r, enc);
+      const body = await getEncoded(served, enc);
       headers['Content-Encoding'] = enc;
-      headers['Vary'] = 'Accept-Encoding';
+      headers['Vary'] = negotiated ? 'Accept, Accept-Encoding' : 'Accept-Encoding';
       headers['Content-Length'] = body.length;
       res.writeHead(200, headers);
       res.end(req.method === 'HEAD' ? undefined : body);
       return;
     }
 
-    headers['Content-Length'] = r.size;
+    headers['Content-Length'] = served.size;
     res.writeHead(200, headers);
     if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(r.file).pipe(res);
+    fs.createReadStream(served.file).pipe(res);
   } catch (err) {
     status = 500;
     if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -267,4 +303,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`mirror served from ${ROOT}`);
   console.log(`  http://localhost:${PORT}/        (de)`);
   console.log(`  compression: ${COMPRESS ? 'br/gzip + in-memory cache' : 'off'}`);
+  console.log(`  webp negotiation: ${WEBP_ENABLED ? 'on (serves <file>.webp when Accept allows)' : 'off'}`);
 });

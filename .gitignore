@@ -10,3 +10,5 @@
 # OS
 .DS_Store
 Thumbs.db
+*.webp
+# webp are derived artifacts; regenerate with tools/make-webp.sh
