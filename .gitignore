@@ -1,0 +1,12 @@
+# Large media — tracked out of git to keep history small.
+# These are original mirror assets; keep backups outside the repo.
+*.mp4
+*.webm
+
+# Build/optimization artifacts
+.opt-cache/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
