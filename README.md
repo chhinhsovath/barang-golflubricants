@@ -31,6 +31,7 @@ Re-run these after re-capturing the mirror. All are idempotent.
 | `tools/fix-logo.js` | Makes the GOLF logo + favicons consistent across every page. |
 | `tools/shrink-video.sh` | Re-encodes the promo videos under Cloudflare's 25 MiB asset limit. |
 | `tools/shrink-pdf.sh` | Shrinks the catalogue PDFs under the same limit. |
+| `tools/cleanup.js` | Removes WordPress plumbing and HTTrack scrape artifacts. |
 
 ```bash
 ./tools/make-webp.sh
@@ -134,6 +135,37 @@ containing the GOLF logo):
 
 **Still VENOL, deliberately untouched:** page `<title>`s and body copy. Rewriting
 those across five languages is a separate job.
+
+## What was removed
+
+`tools/cleanup.js` stripped the parts of the capture that do nothing in a
+static mirror (759 files, 5.4 MB). All of it is recoverable from the baseline
+commit `3ba0739`.
+
+- **WordPress plumbing** — `wp-json/` (393 oEmbed/REST dumps), `wp-admin/`,
+  `xmlrpc*.php`, plus the 959 `<link>` tags across 143 pages that pointed at
+  them (`rel=pingback`, `rel=EditURI`, `rel=shortlink`, oEmbed alternates,
+  `api.w.org`).
+- **HTTrack artifacts** — 128 `index<hash>.html` shortlink stubs, 3 captured
+  "Page not found" pages, `uber-uns/index - Copy.html` (byte-identical to its
+  sibling), and a directory HTTrack created by mistaking a LayerSlider console
+  message for a URL.
+- **Orphaned theme CSS/JS** — 224 files superseded by `assets/bundle/`.
+- **Dead VENOL branding** — the old favicon `.gif`s and unused VENOL logo.
+
+Two guards worth knowing about, because both caught real mistakes:
+
+1. Orphan detection is scoped to `wp-content/` and `wp-includes/`. Without that
+   scope, root-level files that nothing references — `serve.js` above all —
+   look orphaned and get deleted.
+2. `layerslider.transitions994d.js` is still referenced by a standalone
+   `<script>` tag that the bundler correctly leaves alone (it only merges runs
+   of two or more). It must not be removed. Always re-run the reference audit
+   after cleaning.
+
+The GOLF artwork source is preserved at
+`_originals/branding/golf-lubricants-source-1280x731.jpg` — it is the only
+full-resolution GOLF image, and every logo/favicon is derived from it.
 
 ## Known mirror artifacts (present in the original capture, not introduced here)
 
